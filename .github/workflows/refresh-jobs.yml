@@ -1,0 +1,40 @@
+name: Refresh public job feeds
+on:
+  schedule:
+    - cron: '23 */4 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - job-feeds.mjs
+      - scripts/refresh-jobs.mjs
+      - .github/workflows/refresh-jobs.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: public-job-feed-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Refresh public feeds
+        run: node scripts/refresh-jobs.mjs
+      - name: Save public snapshot
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/jobs.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'Refresh public job feeds'
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
