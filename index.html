@@ -216,8 +216,9 @@ document.addEventListener('submit',async event=>{
  }
 });
 
-let companionEndpoint='',companionCredential='',companionHistory=[],companionRequest=null;
-try{companionEndpoint=localStorage.getItem('job-companion-endpoint')||''}catch{}
+const defaultCompanionEndpoint='https://dani-job-companion.holyshiite-job-agent.workers.dev/chat';
+let companionEndpoint=defaultCompanionEndpoint,companionCredential='',companionHistory=[],companionRequest=null;
+try{companionEndpoint=localStorage.getItem('job-companion-endpoint')||defaultCompanionEndpoint}catch{}
 const companionStatus=message=>{$('companion-state').textContent=message};
 const companionForm=$('companion-form');
 const connectionForm=$('companion-connection');
