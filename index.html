@@ -8,6 +8,13 @@
 :root[data-theme=dark]{color-scheme:dark;--bg:#171624;--panel:#222137;--ink:#f5f3fc;--muted:#c7c4da;--line:#403c58;--accent:#c9bcff;--soft:#383053;--green:#a8e6ca;--green-bg:#23463a}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "DM Sans",system-ui,sans-serif}header{display:flex;align-items:center;justify-content:space-between;gap:18px;background:#21213a;color:white;padding:18px 28px}h1,h2,h3,p{margin:0}h1{font-size:clamp(20px,3vw,28px)}h2{font-size:24px}h3{font-size:17px}.brand{display:flex;align-items:center;gap:12px}.mark{border-radius:8px;padding:7px 11px;color:#21213a;background:#c9bcff;font-weight:800}.meta{display:flex;gap:14px;align-items:center;text-align:right}.meta small{display:block;color:#ddd8f5}button,input,select,textarea{font:inherit}button{cursor:pointer;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);padding:7px 12px}button:disabled{opacity:.55;cursor:default}button:not(:disabled):hover{border-color:var(--accent)}button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.primary{background:#5140ad;color:#fff;border-color:#5140ad;font-weight:700}.soft,[aria-selected=true],[aria-pressed=true]{background:var(--soft);color:var(--accent);font-weight:700}.filters,nav{background:var(--panel);padding:12px 26px;border-bottom:1px solid var(--line)}nav,.chips,.flex{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.spread{justify-content:space-between}.filter-row{margin-top:8px;display:flex;gap:10px;align-items:baseline}.filter-row strong{width:90px;flex-shrink:0}.chip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:4px 9px;cursor:pointer}.chip:has(input:checked){background:var(--soft);color:var(--accent)}input[type=checkbox]{accent-color:#6956c8}.workspace{display:grid;grid-template-columns:220px minmax(0,1fr);gap:16px;padding:22px 24px;align-items:start}.workspace.open{grid-template-columns:220px minmax(0,1fr) 360px}.panel{background:var(--panel);border-radius:12px;padding:18px;min-width:0}.stack{display:grid;gap:12px}.minor{color:var(--muted);font-size:13px}.badge{background:var(--green-bg);color:var(--green);font-weight:800;border-radius:20px;padding:4px 10px;white-space:nowrap}details{background:var(--bg);border-radius:7px;padding:7px 9px}summary{cursor:pointer;font-weight:650}details button{display:block;text-align:left;border:0;background:none;color:var(--accent);padding:6px 4px}table{border-collapse:collapse;width:100%;text-align:left}th,td{padding:10px 8px;border-bottom:1px solid var(--line)}th{background:var(--bg);font-size:12px;color:var(--muted)}tr.active{background:var(--soft)}.title-button{border:0;background:none;padding:0;text-align:left;font-weight:750;color:var(--accent)}.table-scroll{overflow:auto}.drawer{animation:slide .24s ease-out}@keyframes slide{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}.single{margin:22px 24px}.analysis{background:var(--bg);padding:12px;border-radius:8px}ul{margin:6px 0 0;padding-left:20px}dialog{border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);width:min(640px,94vw);max-height:88vh;padding:20px}dialog::backdrop{background:#12112288}input:not([type=checkbox]),select,textarea{max-width:100%;border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:var(--panel);color:var(--ink)}textarea{width:100%;min-height:180px}a{color:var(--accent)}#status{padding:0 24px;color:var(--muted)}#status:empty{display:none}@media(max-width:1100px){.workspace.open{grid-template-columns:180px minmax(0,1fr)}.drawer{grid-column:2}.workspace{grid-template-columns:180px minmax(0,1fr)}}@media(max-width:690px){header{align-items:flex-start;padding:12px;flex-wrap:wrap}.meta{text-align:left}.filters,nav{padding:10px 12px}.workspace,.workspace.open{grid-template-columns:1fr;padding:12px}.drawer{grid-column:auto}.single{margin:12px}.filter-row{display:block}.filter-row strong{display:block;margin-bottom:4px}}@media(prefers-reduced-motion:reduce){.drawer{animation:none}}
 .posting-link{display:inline-block;justify-self:start;padding:7px 12px;border:1px solid var(--line);border-radius:8px;background:var(--soft);font-weight:750;text-decoration:none}.posting-link:hover{text-decoration:underline}
+
+.companion{position:fixed;inset:auto 18px 18px auto;z-index:3;border:0;background:#5140ad;color:#fff;box-shadow:0 6px 24px #28224a42;display:flex;gap:8px;align-items:center;font-weight:800;padding:10px 14px;border-radius:22px}
+.companion-face{display:grid;place-items:center;width:31px;height:26px;background:#e5daff;color:#30225b;border-radius:11px;font-size:13px;letter-spacing:3px;padding-left:3px}
+#companion-dialog{width:min(440px,calc(100vw - 24px));margin:auto 12px 12px auto;max-height:min(720px,calc(100dvh - 24px))}
+#companion-dialog textarea{min-height:70px}#companion-dialog [hidden]{display:none}
+.companion-log{max-height:270px;overflow:auto;display:grid;gap:9px}
+.companion-message{border-radius:8px;background:var(--bg);padding:9px 12px;white-space:pre-wrap;overflow-wrap:anywhere}.companion-message.user{background:var(--soft)}
 </style>
 </head>
 <body>
@@ -16,6 +23,29 @@
 <nav id="tabs" aria-label="Dashboard views"></nav>
 <p id="status" aria-live="polite"></p><main id="view"></main>
 <dialog id="settings"></dialog><dialog id="editor"></dialog>
+
+<button class="companion" id="open-companion"><span class="companion-face" aria-hidden="true">••</span>Job companion</button>
+<dialog id="companion-dialog" aria-labelledby="companion-title">
+  <div class="stack">
+    <div class="flex spread"><h2 id="companion-title">Job companion</h2><button id="close-companion" type="button">Close</button></div>
+    <div class="flex"><button id="configure-companion" type="button">Connect</button><button id="clear-companion" type="button">Clear chat</button></div>
+    <form id="companion-connection" class="stack" hidden>
+      <label>Backend URL <input name="endpoint" type="url" placeholder="https://your-worker.example/chat" required></label>
+      <label>Companion access token <input name="credential" type="password" autocomplete="off" required></label>
+      <button class="primary">Save connection</button>
+      <p class="minor">Use the private token for your deployed companion backend.</p>
+    </form>
+    <p class="minor" id="companion-state" role="status"></p>
+    <div class="companion-log" id="companion-log" role="log" aria-live="polite"></div>
+    <form id="companion-form" class="stack">
+      <label>Message <textarea name="question" maxlength="4000" required placeholder="What should I emphasize for this job?"></textarea></label>
+      <label><input type="checkbox" name="job" checked> Include selected posting</label>
+      <label><input type="checkbox" name="resume"> Share my résumé text with OpenAI for this message</label>
+      <p class="minor">Recent chat messages are sent with each request. Clear chat before starting a fresh conversation.</p>
+      <button class="primary" id="send-companion">Send</button>
+    </form>
+  </div>
+</dialog>
 <script type="module">
 import {sites,feeds,identifyFeed,safeUrl,loadFeed,inspectCareerPage} from "./job-feeds.mjs";
 const sampleJobs=[
@@ -185,6 +215,76 @@ document.addEventListener('submit',async event=>{
   if(change(s=>{const existing=s.resumes.find(r=>r.id===form.dataset.id);const job=String(data.get('job'));if(job)remember(s,job);const values={name,job,date:new Date().toISOString()};if(existing){Object.assign(existing,values);if(existing.type==='Draft')existing.text=String(data.get('text'))}else s.resumes.unshift({...values,id:crypto.randomUUID(),type:'Draft',text:String(data.get('text'))})})){$('editor').close();tab='resumes';activeJob=null;render();notice('Résumé saved.')}
  }
 });
+
+let companionEndpoint='',companionCredential='',companionHistory=[],companionRequest=null;
+try{companionEndpoint=localStorage.getItem('job-companion-endpoint')||''}catch{}
+const companionStatus=message=>{$('companion-state').textContent=message};
+const companionForm=$('companion-form');
+const connectionForm=$('companion-connection');
+function updateCompanion(){
+ const connected=!!(companionEndpoint&&companionCredential);
+ $('send-companion').disabled=!connected||!!companionRequest;
+ $('configure-companion').textContent=connected?'Connection':'Connect';
+ const job=lookup(activeJob);
+ companionForm.elements.job.disabled=!job;
+ companionForm.elements.resume.disabled=!state.resumeText.trim();
+ companionStatus(connected?(job?'Selected posting: '+job.title:'Ask about job search, résumés, or interviews.'):'Connect a deployed OpenAI backend to start chatting.');
+}
+function showMessage(role,value){
+ const line=document.createElement('p');
+ line.className='companion-message '+role;
+ line.textContent=(role==='user'?'You: ':'Companion: ')+value;
+ $('companion-log').append(line);
+ line.scrollIntoView({block:'nearest'});
+}
+$('open-companion').addEventListener('click',()=>{updateCompanion();$('companion-dialog').showModal()});
+$('close-companion').addEventListener('click',()=>$('companion-dialog').close());
+$('configure-companion').addEventListener('click',()=>{
+ connectionForm.hidden=!connectionForm.hidden;
+ if(!connectionForm.hidden){connectionForm.elements.endpoint.value=companionEndpoint;connectionForm.elements.endpoint.focus()}
+});
+$('clear-companion').addEventListener('click',()=>{
+ companionRequest?.abort();companionRequest=null;companionHistory=[];$('companion-log').replaceChildren();updateCompanion();
+});
+connectionForm.addEventListener('submit',event=>{
+ event.preventDefault();event.stopPropagation();
+ const endpoint=safeUrl(connectionForm.elements.endpoint.value);
+ if(!endpoint||new URL(endpoint).pathname!=='/chat'||new URL(endpoint).search||new URL(endpoint).hash){companionStatus('Enter an HTTPS backend URL ending in /chat.');return}
+ const credential=connectionForm.elements.credential.value.trim();
+ if(!credential||credential.length>512||/\s/.test(credential)){companionStatus('Enter a valid companion access token.');return}
+ if(endpoint!==companionEndpoint){companionRequest?.abort();companionRequest=null;companionHistory=[];$('companion-log').replaceChildren()}
+ companionEndpoint=endpoint;companionCredential=credential;
+ try{localStorage.setItem('job-companion-endpoint',endpoint)}catch{}
+ connectionForm.elements.credential.value='';connectionForm.hidden=true;updateCompanion();
+});
+companionForm.addEventListener('submit',async event=>{
+ event.preventDefault();event.stopPropagation();
+ if(!companionCredential||!companionEndpoint||companionRequest)return;
+ const question=companionForm.elements.question.value.trim();
+ if(!question)return;
+ const posting=lookup(activeJob);
+ const job=posting&&companionForm.elements.job.checked?[posting.title,posting.source,posting.url,posting.role].filter(Boolean).join('\n').slice(0,12000):'';
+ const resume=companionForm.elements.resume.checked&&!companionForm.elements.resume.disabled?state.resumeText.slice(0,16000):'';
+ const controller=new AbortController();
+ companionRequest=controller;updateCompanion();companionStatus('Waiting for the companion…');
+ const timer=setTimeout(()=>controller.abort(),45000);
+ try{
+  const response=await fetch(companionEndpoint,{method:'POST',credentials:'omit',redirect:'error',signal:controller.signal,
+   headers:{'Content-Type':'application/json',Authorization:'Bearer '+companionCredential},
+   body:JSON.stringify({question,job,resume,history:companionHistory.slice(-8)})});
+  const body=await response.json();
+  if(!response.ok||typeof body.reply!=='string')throw Error(body.error||'The companion could not answer.');
+  if(companionRequest!==controller)return;
+  showMessage('user',question);showMessage('assistant',body.reply);
+  companionHistory=[...companionHistory,{role:'user',text:question},{role:'assistant',text:body.reply}].slice(-8);
+  companionForm.elements.question.value='';companionForm.elements.resume.checked=false;
+  companionRequest=null;updateCompanion();
+ }catch(error){
+  if(companionRequest!==controller)return;
+  companionRequest=null;updateCompanion();companionStatus(error.name==='AbortError'?'The request timed out. Try again.':error.message||'Could not connect to the backend.');
+ }finally{clearTimeout(timer)}
+});
+
 render();
 void refresh();
 </script>
