@@ -66,10 +66,12 @@ export async function loadFeed(source, {provider,board}) {
     const timestamp=dateValue ?? updatedOnly;
     const date=timestamp ? new Date(timestamp) : null;
     const posted=date && Number.isFinite(date.getTime()) ? date.toISOString() : '';
-    const role=plain(item.descriptionPlain || item.description || item.content).slice(0,15000);
+    const description=item.descriptionHtml || item.description || item.content || item.descriptionPlain;
+    const role=plain(item.descriptionPlain || description).slice(0,15000);
+    const brief=prepareJobBrief(description);
     const salary=item.compensation?.scrapeableCompensationSalarySummary;
     const pay=typeof salary==='string'?salary.slice(0,300):'';
-    return [{pay,id:'feed:'+provider+':'+board+':'+encodeURIComponent(item.id??url),source,title,location:(typeof item.location==='string'?item.location:item.location?.name) || item.categories?.location || 'Location unavailable',posted,dateLabel:updatedOnly?'Updated':'Posted',url,role}];
+    return [{pay,brief,id:'feed:'+provider+':'+board+':'+encodeURIComponent(item.id??url),source,title,location:(typeof item.location==='string'?item.location:item.location?.name) || item.categories?.location || 'Location unavailable',posted,dateLabel:updatedOnly?'Updated':'Posted',url,role}];
   });
 }
 
@@ -93,9 +95,43 @@ export async function inspectCareerPage(source, link, respond = fetch) {
       if(!jobUrl)continue;
       const date=Date.parse(item.datePosted);
       const locations=[item.jobLocation].flat().filter(Boolean).map(x=>[x.address?.addressLocality,x.address?.addressRegion,x.address?.addressCountry].filter(y=>typeof y==='string').join(', ')).filter(Boolean);
-      jobs.set(jobUrl,{id:'feed:page:'+encodeURIComponent(jobUrl),source,title:item.title,url:jobUrl,role:plain(item.description).slice(0,15000),location:locations.join(' / ')|| (item.jobLocationType==='TELECOMMUTE'?'Remote':'Location unavailable'),posted:Number.isFinite(date)?new Date(date).toISOString():'',dateLabel:'Posted'});
+      jobs.set(jobUrl,{id:'feed:page:'+encodeURIComponent(jobUrl),source,title:item.title,url:jobUrl,brief:prepareJobBrief(item.description),role:plain(item.description).slice(0,15000),location:locations.join(' / ')|| (item.jobLocationType==='TELECOMMUTE'?'Remote':'Location unavailable'),posted:Number.isFinite(date)?new Date(date).toISOString():'',dateLabel:'Posted'});
     }
   }
   if(!jobs.size)throw Error('No structured job listings found');
   return [...jobs.values()];
+}
+
+export function prepareJobBrief(text) {
+  const source=String(text||'').replace(/<\/(?:li|p|h[1-6]|div)>|<br\s*\/?>/gi,'\n');
+  const buckets={role:[],experience:[],expectations:[]};
+  let section='';
+  const classifyHeading=label=>{
+    if(/^(?:responsibilities|what you(?:'ll| will) do|in this role,? you will|your impact|the role|about the role)(?: include)?$/i.test(label))return 'role';
+    if(/^(?:qualifications|requirements|required qualifications|minimum qualifications|preferred qualifications|what you(?:'ll| will) bring|what we(?:'re| are) looking for|you might thrive in this role if you|experience|about you|you may be a good fit if you)$/i.test(label))return 'experience';
+    if(/^(?:expectations|work location|workplace|working arrangements|logistics|work environment)$/i.test(label))return 'expectations';
+    if(/^(?:benefits|compensation|salary|about us|about the team|equal opportunity|how to apply|application process)$/i.test(label))return 'skip';
+    return '';
+  };
+  for(const raw of source.split(/\n+|[•●▪]/)){
+    const line=plain(raw).replace(/^(?:[-–]\s+|\d+\.\s+)/,'').trim();
+    if(!line)continue;
+    const heading=classifyHeading(line.replace(/[:.]$/,''));
+    if(heading){section=heading;continue}
+    const inline=line.match(/^([^:]{3,60}):\s+(.+)$/);
+    const inlineSection=inline&&classifyHeading(inline[1]);
+    if(inlineSection)section=inlineSection;
+    if(section==='skip')continue;
+    for(const sentence of (inlineSection?inline[2]:line).split(/(?<=[.!?])\s+(?=[A-Z])/)){
+      if(sentence.length<18||/equal opportunity|accommodations|privacy policy|apply now|total rewards/i.test(sentence))continue;
+      const expectations=/\b(?:hybrid|on[- ]site|relocat(?:e|ion)|travel|in the office|days per week|work authorization|time zone|on-call|shift|weekends?)\b/i;
+      const experience=/\b(?:years? of experience|years? (?:in|with)|experience (?:with|in|working|building|leading)|proficiency|degree|certification|proven track record|demonstrated ability)\b/i;
+      const responsibility=/^(?:you(?:'ll| will) |lead |build |design |develop |manage |own |partner |drive |deliver |support |collaborate |maintain |create |work with |conduct |implement |oversee |analyze |coordinate )/i;
+      const key=expectations.test(sentence)?'expectations':section|| (experience.test(sentence)?'experience':responsibility.test(sentence)?'role':'');
+      if(!key)continue;
+      const value=sentence.length>132?sentence.slice(0,131).replace(/\s+\S*$/,'')+'…':sentence;
+      if(buckets[key].length<2&&!buckets[key].some(x=>x.toLowerCase()===value.toLowerCase()))buckets[key].push(value);
+    }
+  }
+  return buckets;
 }

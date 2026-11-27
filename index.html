@@ -119,7 +119,7 @@
   </div>
 </dialog>
 <script type="module">
-import {sites,feeds,identifyFeed,safeUrl,loadFeed,inspectCareerPage} from "./job-feeds.mjs";
+import {sites,feeds,identifyFeed,safeUrl,loadFeed,inspectCareerPage,prepareJobBrief} from "./job-feeds.mjs";
 const sampleJobs=[
  {id:'openai',source:'OpenAI',title:'Product Operations Lead',location:'San Francisco, CA',posted:'2026-11-25',match:96,role:'Lead launch planning, establish operating rhythms, and coordinate delivery across Product, Design, and Engineering.',reasons:['Cross-functional launch ownership aligns with the sample profile.','The role calls for operations metrics and stakeholder coordination.','Review the on-site expectations before applying.']},
  {id:'google',source:'Google',title:'Program Manager, Product',location:'Mountain View, CA',posted:'2026-11-24',match:92,role:'Coordinate product milestones, track dependencies, and report delivery risks.',reasons:['The sample profile emphasizes program planning and stakeholder alignment.','Confirm the scope of technical program ownership.']},
@@ -208,7 +208,9 @@ function jobDrawer(job){
  const fit=aiFit?data.fit:score;
  const concise=(text,max=145)=>text.length>max?text.slice(0,max-1).replace(/\s+\S*$/,'')+'…':text;
  const excerpts=(job.role||'').split(/\n+|(?<=[.!?])\s+|\s+[•●]\s+/).map(x=>x.trim()).filter(x=>x.length>28);
- const bullets=(data?.highlights?.length?data.highlights:excerpts).slice(0,3).map(x=>concise(x));
+ const brief=job.brief||prepareJobBrief(job.role);
+ const bullets=(data?.highlights?.length?data.highlights:brief.role.length?brief.role:excerpts).slice(0,3).map(x=>concise(x));
+ const shortSection=(title,items)=>items.length?'<section class="analysis"><h3>'+title+'</h3>'+listItems(items.slice(0,2).map(x=>concise(x)))+'</section>':'';
  const mapping=current?(data?.mapping||[]).slice(0,2):[];
  const pay=job.pay||postedPay(job);
  const busy=insightPending.has(job.id);
@@ -217,6 +219,7 @@ function jobDrawer(job){
  '<p class="minor">'+escape(job.source+' · '+job.location)+'</p>'+
  (pay?'<p><strong>Published pay</strong> · '+escape(pay)+'</p>':'')+
  '<section class="analysis"><h3>Role in brief</h3>'+(bullets.length?listItems(bullets):'<p>See the original posting for role details.</p>')+'</section>'+
+ shortSection('Experience',brief.experience)+shortSection('Expectations',brief.expectations)+
  '<section class="analysis"><h3>Résumé match</h3>'+
  (fit==null?'<p>Add résumé text to see a match.</p>':'<div><span class="badge">'+fit+'% '+(aiFit?'AI fit estimate':'keyword match')+'</span></div>'+
  (mapping.length?'<ul>'+mapping.map(x=>'<li><strong>'+escape(concise(x.requirement,80))+'</strong> — '+escape(concise(x.evidence))+'</li>').join('')+'</ul>':listItems(reasons.slice(0,1).map(x=>concise(x)))))+'</section>'+
