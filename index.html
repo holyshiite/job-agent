@@ -30,6 +30,12 @@
 .mascot[data-emote=kiss] .mascot-effect{color:#ffb9dc;animation:mascot-float 1.4s ease-out both}
 .mascot[data-emote=sparkle] .mascot-effect{color:#fff0a3;animation:mascot-float 1.4s ease-out both}
 .mascot[data-emote=sparkle] .mascot-face{animation:mascot-tilt 1.15s ease both}
+#chat-mascot{background:var(--soft);border-radius:50%}
+.mascot[data-emote=think] .mascot-face{animation:mascot-think 1.8s ease-in-out infinite}
+.mascot[data-emote=greet] .mascot-paw{animation:mascot-wave 1.25s ease both}
+.mascot[data-emote=cheer]{animation:mascot-hop 1.2s ease both}
+.mascot[data-emote=cheer] .mascot-effect{color:#ff9bbc;animation:mascot-float 1.4s ease both}
+@keyframes mascot-think{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
 .mascot[data-emote=hop]{animation:mascot-hop 1.2s ease both}
 .mascot[data-emote=wink] .mascot-face:after{height:2px;margin-top:3px}
 .mascot[data-emote=wink] .mascot-face{animation:mascot-tilt 1.15s ease both}
@@ -46,6 +52,13 @@
 #settings label,#settings button,#settings .minor{overflow-wrap:anywhere}
 @keyframes admin-slide-in{from{transform:translateY(-24px);opacity:0}to{transform:translateY(0);opacity:1}}
 @media(prefers-reduced-motion:reduce){#settings[open]{animation:none}}
+
+.drawer .analysis{display:grid;gap:8px}.drawer details p{white-space:pre-wrap;overflow-wrap:anywhere}.drawer .analysis li+li{margin-top:5px}
+.draft-workspace{width:min(1100px,calc(100vw - 24px));max-width:none;max-height:calc(100dvh - 24px);overscroll-behavior:contain}
+.draft-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,34%);gap:18px;align-items:start}.draft-paper{border:1px solid var(--line);border-radius:8px;padding:16px;white-space:pre-wrap;overflow-wrap:anywhere}.draft-paper mark{background:#ffdce1;color:#671726;text-decoration:underline;text-decoration-color:#b42d48}
+.red-pen{border-left:3px solid #bb3a55;padding:12px;background:var(--bg);border-radius:7px;overflow-wrap:anywhere}.red-pen strong,.red-pen ins,.red-pen del{color:#ac2742}:root[data-theme=dark] .red-pen strong,:root[data-theme=dark] .red-pen ins,:root[data-theme=dark] .red-pen del{color:#ff9bac}
+.draft-grid textarea{min-height:44vh}
+@media(max-width:720px){.draft-grid{grid-template-columns:minmax(0,1fr)}}
 </style>
 </head>
 <body>
@@ -58,7 +71,7 @@
 <button class="companion" id="open-companion"><span class="mascot" id="job-mascot" aria-hidden="true"><span class="mascot-ear"></span><span class="mascot-ear right"></span><span class="mascot-face"><span class="mascot-mouth"></span></span><span class="mascot-paw"></span><span class="mascot-effect"></span></span>Job companion</button>
 <dialog id="companion-dialog" aria-labelledby="companion-title">
   <div class="stack">
-    <div class="flex spread"><h2 id="companion-title">Job companion</h2><button id="close-companion" type="button">Close</button></div>
+    <div class="flex spread"><div class="flex"><span class="mascot" id="chat-mascot" aria-hidden="true"><span class="mascot-ear"></span><span class="mascot-ear right"></span><span class="mascot-face"><span class="mascot-mouth"></span></span><span class="mascot-paw"></span><span class="mascot-effect"></span></span><h2 id="companion-title">Job companion</h2></div><button id="close-companion" type="button">Close</button></div>
     <div class="flex"><button id="configure-companion" type="button">Connect</button><button id="clear-companion" type="button">Clear chat</button></div>
     <form id="companion-connection" class="stack" hidden>
       <label>Backend URL <input name="endpoint" type="url" placeholder="https://your-worker.example/chat" required></label>
@@ -150,7 +163,38 @@ function jobTable(jobs,mode){
  const tail=mode==='submitted'?'<th>Submitted</th><th>Résumé</th>':'<th>Save</th><th>Application</th>';
  return '<div class="table-scroll"><table><thead><tr><th>Job title</th><th>Date posted</th><th>Match</th>'+tail+'</tr></thead><tbody>'+jobs.map(j=>{const {score}=assess(j);const entry=state.submitted[j.id];const resume=state.resumes.find(r=>r.id===entry?.resume);return '<tr class="'+(activeJob===j.id?'active':'')+'"><td>'+button(j.title,'open',j.id,'title-button')+'<div class="minor">'+escape(j.source+' · '+j.location)+'</div></td><td>'+date(j.posted)+(j.dateLabel==='Updated'?' (updated)':'')+'</td><td><span class="badge">'+(score===null?'—':score+'%')+'</span></td>'+(mode==='submitted'?'<td>'+date(entry.date)+'</td><td>'+escape(resume?.name||'No résumé linked')+'</td>':'<td><input type="checkbox" aria-label="Save '+escape(j.title)+'" data-save="'+j.id+'" '+(state.saved.includes(j.id)?'checked':'')+'></td><td>'+(entry?'<span class="minor">Submitted</span>':button('Mark submitted','submit',j.id))+'</td>')+'</tr>'}).join('')+'</tbody></table></div>';
 }
-function jobDrawer(job){const {score,reasons,label}=assess(job);return '<aside class="panel stack drawer" aria-label="Job details"><div class="flex spread"><span class="minor">Job details</span>'+button('Close','close')+'</div><h2>'+escape(job.title)+'</h2>'+(safeUrl(job.url)?'<a href="'+escape(job.url)+'" target="_blank" rel="noopener noreferrer" class="posting-link">Open original job posting ↗</a>':'')+'<p class="minor">'+escape(job.source+' · '+job.location)+' · '+(job.dateLabel||'Posted')+' '+date(job.posted)+'</p><div><span class="badge">'+(score===null?'No résumé comparison yet':score+'% résumé similarity')+'</span></div><h3>About the role</h3><p>'+escape(job.role)+'</p><section class="analysis"><h3>Why this was selected</h3><p class="minor">'+escape(label)+'</p><ul>'+reasons.map(reason=>'<li>'+escape(reason)+'</li>').join('')+'</ul></section>'+button('Propose a revised résumé','draft',job.id,'primary')+'</aside>'}
+
+const insightCache=new Map(), insightPending=new Set(), insightErrors=new Map();
+function listItems(items){return items.length?'<ul>'+items.map(item=>'<li>'+escape(item)+'</li>').join('')+'</ul>':''}
+function postedPay(job){
+ const patterns=[/\$\s?\d[\d,.]*(?:\s?[kK])?\s*(?:[–—-]|to)\s*(?:\$\s?)?\d[\d,.]*(?:\s?[kK])?(?:\s*(?:USD|CAD|AUD|per year|\/year|per hour|\/hour))?/gi,/(?:USD|CAD|EUR|GBP)\s+\d[\d,.]*(?:\s?[kK])?\s*(?:[–—-]|to)\s*\d[\d,.]*(?:\s?[kK])?/gi];
+ const results=[...new Set(patterns.flatMap(pattern=>String(job.role||'').match(pattern)||[]))];
+ return results.slice(0,3).join(' · ');
+}
+function jobDrawer(job){
+ const {score,reasons,label}=assess(job);
+ const insight=insightCache.get(job.id);
+ const useResume=insight?.resume===state.resumeText.slice(0,16000);
+ const fit=useResume&&Number.isInteger(insight.data.fit)?insight.data.fit:score;
+ const data=insight?.data;
+ const mapping=useResume?data?.mapping||[]:[];
+ const recommendations=useResume?data?.recommendations||[]:[];
+ const pay=job.pay||postedPay(job)||'No pay range found in the feed';
+ const busy=insightPending.has(job.id);
+ return '<aside class="panel stack drawer" aria-label="Job details">'+
+ '<div class="flex spread"><span class="minor">Job details</span>'+button('Close','close')+'</div><h2>'+escape(job.title)+'</h2><p class="minor">'+escape(job.source+' · '+job.location)+' · '+(job.dateLabel||'Posted')+' '+date(job.posted)+'</p>'+
+ (safeUrl(job.url)?'<a href="'+escape(job.url)+'" target="_blank" rel="noopener noreferrer" class="posting-link">Open original job posting ↗</a>':'')+
+ '<div><span class="badge">'+(fit===null?'No résumé comparison yet':fit+'% '+(useResume&&Number.isInteger(data?.fit)?'AI fit estimate':'résumé similarity'))+'</span></div>'+
+ '<section class="analysis"><h3>Pay range</h3><p>'+escape(pay)+'</p></section>'+
+ '<section class="analysis"><h3>'+ (data?'AI role summary':'Role overview')+'</h3><p>'+escape(data?.overview||((job.role||'').slice(0,210)+(job.role?.length>210?'…':''))||'See the original posting for details.')+'</p>'+listItems(data?.highlights||[])+'</section>'+
+ '<section class="analysis"><h3>Why it fits</h3><p class="minor">'+escape(mapping.length?'Job requirements mapped to your résumé':label)+'</p>'+
+ (mapping.length?'<ul>'+mapping.map(x=>'<li><strong>'+escape(x.requirement)+'</strong><br>'+escape(x.evidence)+'</li>').join('')+'</ul>':listItems(reasons))+'</section>'+
+ (recommendations.length?'<section class="analysis"><h3>Recommendations</h3>'+listItems(recommendations)+'</section>':'')+
+ '<p class="minor" role="status">'+escape(insightErrors.get(job.id)|| (busy?'Generating analysis…':'AI analysis and tailoring send this posting and your selected résumé text, if available, to OpenAI.'))+'</p>'+
+ '<div class="flex">'+button(busy?'Analyzing…':useResume?'Refresh AI analysis':'Generate AI analysis','analyze-job',job.id,'soft')+button('Create tailored résumé','draft',job.id,'primary')+'</div>'+
+ (job.role?'<details><summary>Full posting text</summary><p>'+escape(job.role)+'</p></details>':'')+'</aside>';
+}
+
 function resumesTable(){return '<div class="flex spread"><h2>Résumé drafts</h2>'+button('Upload résumé','admin','','primary')+'</div>'+(state.resumes.length?'<div class="table-scroll"><table><thead><tr><th>Résumé</th><th>Linked posting</th><th>Updated</th><th>Type</th><th>Actions</th></tr></thead><tbody>'+state.resumes.map(r=>'<tr><td>'+escape(r.name)+'</td><td>'+escape(linked(r.job))+'</td><td>'+date(r.date)+'</td><td>'+escape(r.type)+'</td><td><div class="flex">'+button('Download','download',r.id)+button(r.type==='Draft'?'Edit':'Link posting','edit',r.id)+(r.type==='Draft'?button('Use for matching','use-resume',r.id):'')+button('Remove','remove-resume',r.id)+'</div></td></tr>').join('')+'</tbody></table></div>':'<p class="minor">Upload a résumé or create a draft from a job posting.</p>')}
 function render(){
  resumeTerms=words(state.resumeText);
@@ -195,7 +239,14 @@ document.addEventListener('click',event=>{
  if(action==='use-resume'){const resume=state.resumes.find(x=>x.id===value);if(resume?.text&&change(s=>{s.resumeText=resume.text}))notice('Résumé draft selected for matching.');}
  if(action==='dismiss-settings')$('settings').close();
  if(action==='dismiss-editor')$('editor').close();
- if(action==='draft'||action==='edit'||action==='submit')showEditor(action,value);
+ if(action==='analyze-job')void analyzeJob(value);
+ if(action==='draft')void generateDraft(value);
+ if(action==='edit'){
+  const resume=state.resumes.find(x=>x.id===value),job=lookup(resume?.job);
+  if(resume?.type==='Draft'&&Array.isArray(resume.changes)&&job)showDraftWorkspace(job,resume.text,resume.changes,resume);
+  else showEditor(action,value);
+ }
+ if(action==='submit')showEditor(action,value);
  if(action==='select-removal'){
   const selected=removalSelection[opener.dataset.kind];
   if(selected.has(value))selected.delete(value);else selected.add(value);
@@ -261,6 +312,15 @@ setInterval(()=>{
  setTimeout(()=>{delete mascot.dataset.emote},1500);
 },30000);
 
+let chatReactionTimer;
+function chatReaction(name,effect=''){
+ const pet=$('chat-mascot');
+ clearTimeout(chatReactionTimer);
+ if(reducedMotion.matches){delete pet.dataset.emote;return}
+ pet.querySelector('.mascot-effect').textContent=effect;
+ pet.dataset.emote=name;
+ if(name!=='think')chatReactionTimer=setTimeout(()=>{delete pet.dataset.emote},1500);
+}
 let companionEndpoint=defaultCompanionEndpoint,companionCredential='',companionHistory=[],companionRequest=null;
 try{companionEndpoint=localStorage.getItem('job-companion-endpoint')||defaultCompanionEndpoint}catch{}
 const companionStatus=message=>{$('companion-state').textContent=message};
@@ -282,14 +342,14 @@ function showMessage(role,value){
  $('companion-log').append(line);
  line.scrollIntoView({block:'nearest'});
 }
-$('open-companion').addEventListener('click',()=>{updateCompanion();$('companion-dialog').showModal()});
+$('open-companion').addEventListener('click',()=>{updateCompanion();$('companion-dialog').showModal();chatReaction(companionRequest?'think':'greet')});
 $('close-companion').addEventListener('click',()=>$('companion-dialog').close());
 $('configure-companion').addEventListener('click',()=>{
  connectionForm.hidden=!connectionForm.hidden;
  if(!connectionForm.hidden){connectionForm.elements.endpoint.value=companionEndpoint;connectionForm.elements.endpoint.focus()}
 });
 $('clear-companion').addEventListener('click',()=>{
- companionRequest?.abort();companionRequest=null;companionHistory=[];$('companion-log').replaceChildren();updateCompanion();
+ companionRequest?.abort();companionRequest=null;companionHistory=[];$('companion-log').replaceChildren();updateCompanion();chatReaction('wink');
 });
 connectionForm.addEventListener('submit',event=>{
  event.preventDefault();event.stopPropagation();
@@ -311,7 +371,7 @@ companionForm.addEventListener('submit',async event=>{
  const job=posting&&companionForm.elements.job.checked?[posting.title,posting.source,posting.url,posting.role].filter(Boolean).join('\n').slice(0,12000):'';
  const resume=companionForm.elements.resume.checked&&!companionForm.elements.resume.disabled?state.resumeText.slice(0,16000):'';
  const controller=new AbortController();
- companionRequest=controller;updateCompanion();companionStatus('Waiting for the companion…');
+ companionRequest=controller;updateCompanion();companionStatus('Waiting for the companion…');chatReaction('think');
  const timer=setTimeout(()=>controller.abort(),45000);
  try{
   const response=await fetch(companionEndpoint,{method:'POST',credentials:'omit',redirect:'error',signal:controller.signal,
@@ -323,11 +383,95 @@ companionForm.addEventListener('submit',async event=>{
   showMessage('user',question);showMessage('assistant',body.reply);
   companionHistory=[...companionHistory,{role:'user',text:question},{role:'assistant',text:body.reply}].slice(-8);
   companionForm.elements.question.value='';companionForm.elements.resume.checked=false;
-  companionRequest=null;updateCompanion();
+  companionRequest=null;updateCompanion();chatReaction('cheer','♥');
  }catch(error){
   if(companionRequest!==controller)return;
-  companionRequest=null;updateCompanion();companionStatus(error.name==='AbortError'?'The request timed out. Try again.':error.message||'Could not connect to the backend.');
+  companionRequest=null;updateCompanion();chatReaction('wink');companionStatus(error.name==='AbortError'?'The request timed out. Try again.':error.message||'Could not connect to the backend.');
  }finally{clearTimeout(timer)}
+});
+
+
+function postingContext(job){return [job.title,job.source,job.location,job.url,job.pay?'Published pay: '+job.pay:'',job.role].filter(Boolean).join('\n').slice(0,12000)}
+async function companionTask(task,job,resume){
+ const response=await fetch(companionEndpoint,{method:'POST',credentials:'omit',redirect:'error',signal:AbortSignal.timeout(43000),headers:{'Content-Type':'application/json',Authorization:'Bearer '+companionCredential},
+ body:JSON.stringify({task,job:postingContext(job),resume,question:task==='draft'?'Create a complete tailored résumé and explain the changes.':'Summarize the role and assess fit.'})});
+ const body=await response.json();
+ if(!response.ok)throw Error(body.error||'The AI request failed.');
+ try{return JSON.parse(body.reply)}catch{throw Error('The assistant returned an incomplete result. Try again.')}
+}
+function requireConnection(){if(companionCredential&&companionEndpoint)return true;$('open-companion').click();companionStatus('Connect the companion, then retry the AI action.');return false}
+const cleanList=value=>Array.isArray(value)?value.filter(x=>typeof x==='string').slice(0,5):[];
+async function analyzeJob(id){
+ const job=lookup(id);if(!job||insightPending.has(id)||!requireConnection())return;
+ const resume=state.resumeText.slice(0,16000);
+ insightPending.add(id);insightErrors.delete(id);render();
+ try{
+  const value=await companionTask('summary',job,resume);
+  if(typeof value?.overview!=='string'||!value.overview.trim())throw Error('No role summary was returned.');
+  const mapping=Array.isArray(value.mapping)?value.mapping.filter(x=>typeof x?.requirement==='string'&&typeof x.evidence==='string').slice(0,5):[];
+  insightCache.set(id,{resume,data:{overview:value.overview,highlights:cleanList(value.highlights),fit:resume&&Number.isInteger(value.fit)&&value.fit>=0&&value.fit<=100?value.fit:null,mapping,recommendations:cleanList(value.recommendations)}});
+ }catch(error){insightErrors.set(id,error.name==='TimeoutError'?'The request timed out. Try again.':error.message)}
+ finally{insightPending.delete(id);render();}
+}
+function annotatedResume(text,changes){
+ const ranges=[];
+ for(const [index,change] of changes.entries()){
+  const start=change.after?text.indexOf(change.after):-1;
+  if(start<0)continue;
+  const end=start+change.after.length;
+  if(!ranges.some(range=>start<range.end&&end>range.start))ranges.push({start,end,index});
+ }
+ let cursor=0,html='';
+ for(const {start,end,index} of ranges.sort((a,b)=>a.start-b.start)){
+  html+=escape(text.slice(cursor,start))+'<mark title="Edit '+(index+1)+'">'+escape(text.slice(start,end))+'</mark><sup>['+(index+1)+']</sup>';
+  cursor=end;
+ }
+ return html+escape(text.slice(cursor));
+}
+function showDraftWorkspace(job,resume,changes,existing){
+ const editor=$('editor');editor.classList.add('draft-workspace');
+ const attributes=' data-id="'+escape(existing?.id||'')+'"';
+ editor.innerHTML='<form id="review-draft" class="stack"'+attributes+'><div class="flex spread"><h2>Tailored résumé</h2>'+button('Close','dismiss-editor')+'</div>'+
+ '<p class="minor">'+escape(linked(job.id))+'</p><label>Name <input name="name" required maxlength="120" value="'+escape(existing?.name||'Dani — '+job.title)+'"></label>'+
+ '<div class="draft-grid"><section class="stack"><h3>Full résumé</h3><div id="draft-markup" class="draft-paper">'+annotatedResume(resume,changes)+'</div><details><summary>Edit draft text</summary><label><textarea name="text" required maxlength="32000" aria-label="Full résumé text">'+escape(resume)+'</textarea></label></details></section>'+
+ '<aside class="stack" aria-label="Red pen annotations"><h3>Red pen edits</h3>'+ (changes.length?changes.map((change,i)=>'<article class="red-pen"><strong>Edit '+(i+1)+'</strong>'+ (change.before?'<p><del>'+escape(change.before)+'</del></p>':'')+(change.after?'<p><ins>'+escape(change.after)+'</ins></p>':'')+'<p>'+escape(change.why)+'</p></article>').join(''):'<p class="minor">No matched edit annotations were returned.</p>')+'</aside></div>'+
+ '<div><button class="primary">Save résumé draft</button></div></form>';
+ const form=$('review-draft');
+ form.elements.text.addEventListener('input',()=>$('draft-markup').innerHTML=annotatedResume(form.elements.text.value,changes));
+ form.addEventListener('submit',event=>{
+  event.preventDefault();event.stopPropagation();
+  const name=form.elements.name.value.trim(),text=form.elements.text.value.trim();
+  if(!name||!text)return;
+  const id=existing?.id||crypto.randomUUID();
+  if(change(s=>{remember(s,job.id);const entry={id,name,text,changes,job:job.id,date:new Date().toISOString(),type:'Draft'};const index=s.resumes.findIndex(r=>r.id===id);if(index<0)s.resumes.unshift(entry);else s.resumes[index]=entry})){
+   editor.close();tab='resumes';activeJob=null;render();notice('Tailored résumé saved.');
+  }
+ });
+ if(!editor.open)editor.showModal();
+}
+let draftGeneration=0;
+async function generateDraft(id){
+ const job=lookup(id);if(!job)return;
+ if(!state.resumeText.trim()){notice('Add résumé text in Admin or select a résumé draft before tailoring.');settings();return}
+ if(!requireConnection())return;
+ const editor=$('editor'),generation=++draftGeneration;
+ const original=state.resumeText.trim().slice(0,16000);
+ editor.classList.add('draft-workspace');
+ editor.innerHTML='<section class="stack"><div class="flex spread"><h2>Tailored résumé</h2>'+button('Close','dismiss-editor')+'</div><p class="minor" role="status">Creating the full résumé and red pen edits…</p></section>';
+ editor.showModal();
+ try{
+  const data=await companionTask('draft',job,original);
+  if(generation!==draftGeneration||!editor.open)return;
+  if(typeof data?.resume!=='string'||!data.resume.trim())throw Error('No complete résumé was returned.');
+  const changes=Array.isArray(data.changes)?data.changes.filter(x=>typeof x?.before==='string'&&typeof x.after==='string'&&typeof x.why==='string'&&(x.before||x.after)&&(!x.before||original.includes(x.before))&&(!x.after||data.resume.includes(x.after))).slice(0,8):[];
+  showDraftWorkspace(job,data.resume,changes);
+ }catch(error){if(generation===draftGeneration&&editor.open)editor.innerHTML='<section class="stack"><div class="flex spread"><h2>Tailored résumé</h2>'+button('Close','dismiss-editor')+'</div><p role="status">'+escape(error.name==='TimeoutError'?'The request timed out. Try again.':error.message)+'</p></section>'}
+}
+$('editor').addEventListener('close',()=>{draftGeneration++;$('editor').classList.remove('draft-workspace')});
+$('settings').addEventListener('click',event=>{
+ const dialog=$('settings');if(event.target!==dialog)return;
+ const bounds=dialog.getBoundingClientRect();
+ if(event.clientX<bounds.left||event.clientX>bounds.right||event.clientY<bounds.top||event.clientY>bounds.bottom)dialog.close();
 });
 
 render();

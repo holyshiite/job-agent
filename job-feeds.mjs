@@ -41,7 +41,7 @@ export function identifyFeed(link) {
   return /^[a-z0-9_-]{2,80}$/i.test(board || '') ? {provider,board} : null;
 }
 const urls = {
-  ashby: board => 'https://api.ashbyhq.com/posting-api/job-board/' + board,
+  ashby: board => 'https://api.ashbyhq.com/posting-api/job-board/' + board + '?includeCompensation=true',
   greenhouse: board => 'https://boards-api.greenhouse.io/v1/boards/' + board + '/jobs?content=true',
   lever: board => 'https://api.lever.co/v0/postings/' + board + '?mode=json'
 };
@@ -67,7 +67,9 @@ export async function loadFeed(source, {provider,board}) {
     const date=timestamp ? new Date(timestamp) : null;
     const posted=date && Number.isFinite(date.getTime()) ? date.toISOString() : '';
     const role=plain(item.descriptionPlain || item.description || item.content).slice(0,15000);
-    return [{id:'feed:'+provider+':'+board+':'+encodeURIComponent(item.id??url),source,title,location:(typeof item.location==='string'?item.location:item.location?.name) || item.categories?.location || 'Location unavailable',posted,dateLabel:updatedOnly?'Updated':'Posted',url,role}];
+    const salary=item.compensation?.scrapeableCompensationSalarySummary;
+    const pay=typeof salary==='string'?salary.slice(0,300):'';
+    return [{pay,id:'feed:'+provider+':'+board+':'+encodeURIComponent(item.id??url),source,title,location:(typeof item.location==='string'?item.location:item.location?.name) || item.categories?.location || 'Location unavailable',posted,dateLabel:updatedOnly?'Updated':'Posted',url,role}];
   });
 }
 

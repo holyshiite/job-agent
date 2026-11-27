@@ -53,12 +53,18 @@ export default {
     const history=Array.isArray(input.history)?input.history.slice(-8).flatMap(m=>['user','assistant'].includes(m?.role)&&typeof m.text==='string'?[{role:m.role,content:m.text.slice(0,3000)}]:[]):[];
     const job=typeof input.job==='string'?input.job.slice(0,12000):'';
     const resume=typeof input.resume==='string'?input.resume.slice(0,16000):'';
+    const task=input.task==='summary'||input.task==='draft'?input.task:'chat';
+    if(task==='draft'&&!resume.trim())return json({error:'Add résumé text before creating a draft.'},400,origin);
+    const taskInstructions={
+      summary:'Summarize the posting faithfully. Return a JSON object with overview (one short paragraph), highlights (three short bullets), pay (only an explicitly stated range and currency as written, or an empty string), fit (integer 0 to 100 based on evidence in the supplied résumé, or null if no résumé), mapping (up to four objects with requirement and evidence, cite actual résumé text and identify gaps), and recommendations (up to three concise next steps). Treat missing information as unknown. Output only JSON.',
+      draft:'Write the complete tailored résumé using the supplied résumé as evidence. Include relevant existing sections and preserve accurate names, dates, employers, credentials, and metrics. Never invent qualifications or insert placeholders. Return only a JSON object with resume (complete plain-text résumé with line breaks) and changes (up to eight objects with before, after, and why). Use exact phrases from the old and draft résumés for before and after. Use an empty string if text was added or removed. Explain why each revision helps for this posting.'
+    };
     const context=JSON.stringify({selectedPosting:job,sharedResumeText:resume,question});
     try {
       const response=await fetch('https://api.openai.com/v1/responses',{
         method:'POST',headers:{Authorization:'Bearer '+env.OPENAI_API_KEY,'Content-Type':'application/json'},
         signal:AbortSignal.timeout(35000),
-        body:JSON.stringify({model:env.OPENAI_MODEL||'gpt-5-mini',store:false,instructions:system,input:[...history,{role:'user',content:context}],max_output_tokens:1800})
+        body:JSON.stringify({model:env.OPENAI_MODEL||'gpt-5-mini',store:false,instructions:system+(task==='chat'?'':' '+taskInstructions[task]),input:[...(task==='chat'?history:[]),{role:'user',content:context}],max_output_tokens:task==='draft'?8500:task==='summary'?3500:1800,...(task==='chat'?{}:{text:{format:{type:'json_object'}}})})
       });
       if(!response.ok)return json({error:'OpenAI could not answer. Check the API project, model, and billing.'},502,origin);
       const data=await response.json();
