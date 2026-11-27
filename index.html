@@ -185,14 +185,27 @@ const button=(label,action,value='',cls='')=>'<button class="'+cls+'" data-actio
 function notice(message){$('status').textContent=message}
 function change(update){const next=structuredClone(state);update(next);try{localStorage.setItem(key,JSON.stringify(next));state=next;render();return true}catch{notice('The browser could not save this change. Storage may be full or disabled.');return false}}
 function sourceFilters(){return '<div class="flex spread"><strong>Job sources</strong><span class="minor">'+state.selected.length+' selected</span>'+button(refreshing?'Refreshing…':'Refresh listings','refresh')+'</div>'+Object.entries(state.sources).map(([kind,names])=>'<div class="filter-row"><strong>'+(kind==='companies'?'Companies':'Job boards')+'</strong><div class="chips">'+names.map(name=>'<label class="chip"><input type="checkbox" data-source="'+escape(name)+'" '+(state.selected.includes(name)?'checked':'')+'> '+escape(name)+'</label>').join('')+'</div></div>').join('')}
-function sourceSidebar(){return '<aside class="panel stack"><h3>Selected sources</h3>'+Object.entries(state.sources).map(([kind,names])=>'<strong class="minor">'+(kind==='companies'?'Companies':'Job boards')+'</strong>'+names.filter(name=>state.selected.includes(name)).map(name=>{const jobs=sampleJobs.filter(j=>j.source===name&&j.url);return '<details data-group="'+escape(name)+'" '+(expanded.has(name)?'open':'')+'><summary>'+escape(name)+' ('+jobs.length+')</summary>'+sourceStatus(name)+jobs.slice(0,8).map(j=>button(j.title,'open',j.id)).join('')+'</details>'}).join('')).join('')+'</aside>'}
+function sourceSidebar(){return '<aside class="panel stack"><h3>Selected sources</h3>'+Object.entries(state.sources).map(([kind,names])=>'<strong class="minor">'+(kind==='companies'?'Companies':'Job boards')+'</strong>'+names.filter(name=>state.selected.includes(name)).map(name=>{const jobs=sampleJobs.filter(j=>j.source===name&&j.url&&qualifiesForMatches(j));return '<details data-group="'+escape(name)+'" '+(expanded.has(name)?'open':'')+'><summary>'+escape(name)+' ('+jobs.length+')</summary>'+sourceStatus(name)+jobs.slice(0,8).map(j=>button(j.title,'open',j.id)).join('')+'</details>'}).join('')).join('')+'</aside>'}
 function jobTable(jobs,mode){
- if(!jobs.length)return '<p class="minor">'+({matches:'No live or imported listings for the selected sources yet.',saved:'Check Save beside a listing to see it here.',submitted:'Mark a posting as submitted to track it here.'})[mode]+'</p>';
+ if(!jobs.length)return '<p class="minor">'+({matches:state.resumeText.trim()?'No reviewed listings meet the 75% cutoff yet. Use AI review next 5 to check more jobs.':'Add résumé text in Admin to start finding matches.',saved:'Check Save beside a listing to see it here.',submitted:'Mark a posting as submitted to track it here.'})[mode]+'</p>';
  const tail=mode==='submitted'?'<th>Submitted</th><th>Résumé</th>':'<th>Save</th><th>Application</th>';
  return '<div class="table-scroll"><table><thead><tr><th>Job title</th><th>Date posted</th><th>Match</th>'+tail+'</tr></thead><tbody>'+jobs.map(j=>{const {score,ai}=listingFit(j);const entry=state.submitted[j.id];const resume=state.resumes.find(r=>r.id===entry?.resume);return '<tr class="'+(activeJob===j.id?'active':'')+'"><td>'+button(j.title,'open',j.id,'title-button')+'<div class="minor">'+escape(j.source+' · '+j.location)+'</div></td><td>'+date(j.posted)+(j.dateLabel==='Updated'?' (updated)':'')+'</td><td><span class="badge">'+(score===null?'—':score+'%')+(ai?' AI':'')+'</span></td>'+(mode==='submitted'?'<td>'+date(entry.date)+'</td><td>'+escape(resume?.name||'No résumé linked')+'</td>':'<td><input type="checkbox" aria-label="Save '+escape(j.title)+'" data-save="'+j.id+'" '+(state.saved.includes(j.id)?'checked':'')+'></td><td>'+(entry?'<span class="minor">Submitted</span>':button('Mark submitted','submit',j.id))+'</td>')+'</tr>'}).join('')+'</tbody></table></div>';
 }
 
 const insightCache=new Map(), insightPending=new Set(), insightErrors=new Map();
+const minimumFit=75, fitStorageKey='job-agent-fit-reviews';
+try{
+ const stored=JSON.parse(localStorage.getItem(fitStorageKey));
+ if(stored?.resume===state.resumeText.slice(0,16000)&&Array.isArray(stored.reviews)){
+  for(const [id,data] of stored.reviews)insightCache.set(id,{resume:stored.resume,data});
+ }
+}catch{}
+function saveFitReviews(resume){
+ if(resume!==state.resumeText.slice(0,16000))return;
+ const reviews=[...insightCache].filter(([,review])=>review.resume===resume&&Number.isInteger(review.data.fit)).map(([id,review])=>[id,review.data]);
+ try{localStorage.setItem(fitStorageKey,JSON.stringify({resume,reviews}))}catch{}
+}
+function qualifiesForMatches(job){const fit=listingFit(job);return fit.ai&&fit.score>=minimumFit}
 function listItems(items){return items.length?'<ul>'+items.map(item=>'<li>'+escape(item)+'</li>').join('')+'</ul>':''}
 function postedPay(job){
  const patterns=[/\$\s?\d[\d,.]*(?:\s?[kK])?\s*(?:[–—-]|to)\s*(?:\$\s?)?\d[\d,.]*(?:\s?[kK])?(?:\s*(?:USD|CAD|AUD|per year|\/year|per hour|\/hour))?/gi,/(?:USD|CAD|EUR|GBP)\s+\d[\d,.]*(?:\s?[kK])?\s*(?:[–—-]|to)\s*\d[\d,.]*(?:\s?[kK])?/gi];
@@ -243,10 +256,12 @@ function render(){
  $('tabs').innerHTML=Object.entries(tabs).map(([id,label])=>'<button data-action="tab" data-value="'+id+'" aria-current="'+(tab===id?'page':'false')+'" class="'+(tab===id?'soft':'')+'">'+label+'</button>').join('');
  const job=lookup(activeJob);
  if(tab==='resumes'){$('view').innerHTML='<section class="panel single stack">'+resumesTable()+'</section>';return}
- const jobs=tab==='matches'?sampleJobs.filter(j=>j.url&&state.selected.includes(j.source)):(tab==='saved'?state.saved:Object.keys(state.submitted)).map(lookup).filter(Boolean);
+ const candidates=tab==='matches'?sampleJobs.filter(j=>j.url&&state.selected.includes(j.source)):[];
+ const jobs=tab==='matches'?candidates.filter(qualifiesForMatches):(tab==='saved'?state.saved:Object.keys(state.submitted)).map(lookup).filter(Boolean);
  const scores=new Map(jobs.map(job=>[job.id,listingFit(job)]));
+ const reviewed=tab==='matches'?candidates.filter(job=>listingFit(job).ai).length:0;
  jobs.sort((a,b)=>sort==='date'?b.posted.localeCompare(a.posted):Number(scores.get(b.id).ai)-Number(scores.get(a.id).ai)||(scores.get(b.id).score??-1)-(scores.get(a.id).score??-1));
- const panel='<section class="panel stack"><div class="flex spread"><div><h2>'+tabs[tab]+'</h2><p class="minor">'+jobs.length+' '+(jobs.length===1?'listing':'listings')+'</p></div>'+(tab==='matches'?'<label>Sort <select id="sort"><option value="match">Best match (AI reviewed first)</option><option value="date" '+(sort==='date'?'selected':'')+'>Newest</option></select></label>':'')+(tab==='matches'&&state.resumeText.trim()?button(fitBatchActive?'Reviewing…':'AI review next 5','review-fit','','soft'):'')+'</div>'+jobTable(jobs,tab)+'</section>';
+ const panel='<section class="panel stack"><div class="flex spread"><div><h2>'+tabs[tab]+'</h2><p class="minor">'+(tab==='matches'?jobs.length+' at 75% or higher · '+reviewed+' of '+candidates.length+' AI reviewed':jobs.length+' '+(jobs.length===1?'listing':'listings'))+'</p></div>'+(tab==='matches'?'<label>Sort <select id="sort"><option value="match">Best match</option><option value="date" '+(sort==='date'?'selected':'')+'>Newest</option></select></label>':'')+(tab==='matches'&&state.resumeText.trim()?button(fitBatchActive?'Reviewing…':'AI review next 5','review-fit','','soft'):'')+'</div>'+jobTable(jobs,tab)+'</section>';
  $('view').innerHTML=tab==='matches'?'<div class="workspace '+(job?'open':'')+'">'+sourceSidebar()+panel+(job?jobDrawer(job):'')+'</div>':'<div class="single stack">'+panel+(job?jobDrawer(job):'')+'</div>';
 }
 function jobOptions(id=''){return '<option value="">No linked posting</option>'+[...new Map([...Object.values(state.archive),...sampleJobs].map(j=>[j.id,j])).values()].filter(j=>j.url||j.id===id).map(j=>'<option value="'+j.id+'" '+(j.id===id?'selected':'')+'>'+escape(linked(j.id))+'</option>').join('')}
@@ -513,7 +528,7 @@ async function reviewFitBatch(){
  const resume=state.resumeText;
  const jobs=sampleJobs.filter(job=>job.url&&state.selected.includes(job.source)&&!listingFit(job).ai&&!insightPending.has(job.id))
   .sort((a,b)=>(assess(b).score??-1)-(assess(a).score??-1)).slice(0,5);
- if(!jobs.length){notice('All visible listings have an AI fit review.');return}
+ if(!jobs.length){notice('All listings from the selected sources have an AI fit review.');return}
  fitBatchActive=true;render();
  let completed=0;
  try{
@@ -535,6 +550,7 @@ async function analyzeJob(id){
   if(typeof value?.overview!=='string'||!value.overview.trim())throw Error('No role summary was returned.');
   const mapping=Array.isArray(value.mapping)?value.mapping.filter(x=>typeof x?.requirement==='string'&&typeof x.evidence==='string').slice(0,5):[];
   insightCache.set(id,{resume,data:{overview:value.overview,highlights:cleanList(value.highlights),fit:resume&&Number.isInteger(value.fit)&&value.fit>=0&&value.fit<=100?value.fit:null,mapping,recommendations:cleanList(value.recommendations)}});
+  saveFitReviews(resume);
   return true;
  }catch(error){insightErrors.set(id,error.name==='TimeoutError'?'The request timed out. Try again.':error.message);return false}
  finally{insightPending.delete(id);render();}
