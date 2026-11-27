@@ -143,13 +143,6 @@ let lastRefresh='',refreshing=false;
 sampleJobs.push(...state.imports);
 const sourceUrl=name=>safeUrl((Object.hasOwn(state.sourceUrls,name)?state.sourceUrls[name]:'')||(Object.hasOwn(sites,name)?sites[name]:''));
 const remember=(s,id)=>{const job=lookup(id);if(job)s.archive[id]=job};
-const words=text=>new Set((String(text).toLowerCase().match(/[a-z][a-z0-9+#.-]{2,}/g)||[]).filter(x=>!['the','and','with','for','you','your','our','this','that','are','will','have','from','job','role','all','can','who','years','work','team'].includes(x)));
-let resumeTerms;
-function shortlistPriority(job){
- const title=words(job.title), vocabulary=words(job.title+' '+job.role);
- const overlap=terms=>[...terms].filter(term=>resumeTerms.has(term)).length/Math.max(1,terms.size);
- return 0.45*overlap(title)+0.55*overlap(vocabulary);
-}
 let refreshQueued=false;
 async function refresh(){
  if(refreshing){refreshQueued=true;return}
@@ -191,7 +184,7 @@ function jobTable(jobs,mode){
 }
 
 const insightCache=new Map(), insightPending=new Set(), insightErrors=new Map();
-const minimumFit=75, fitStorageKey='job-agent-fit-reviews';
+const minimumFit=75, fitStorageKey='job-agent-experience-reviews';
 try{
  const stored=JSON.parse(localStorage.getItem(fitStorageKey));
  if(stored?.resume===state.resumeText.slice(0,16000)&&Array.isArray(stored.reviews)){
@@ -248,7 +241,6 @@ function jobDrawer(job){
 
 function resumesTable(){return '<div class="flex spread"><h2>Résumé drafts</h2>'+button('Upload résumé','admin','','primary')+'</div>'+(state.resumes.length?'<div class="table-scroll"><table><thead><tr><th>Résumé</th><th>Linked posting</th><th>Updated</th><th>Type</th><th>Actions</th></tr></thead><tbody>'+state.resumes.map(r=>'<tr><td>'+escape(r.name)+'</td><td>'+escape(linked(r.job))+'</td><td>'+date(r.date)+'</td><td>'+escape(r.type)+'</td><td><div class="flex">'+button('Download','download',r.id)+button(r.type==='Draft'?'Edit':'Link posting','edit',r.id)+(r.type==='Draft'?button('Use for matching','use-resume',r.id):'')+button('Remove','remove-resume',r.id)+'</div></td></tr>').join('')+'</tbody></table></div>':'<p class="minor">Upload a résumé or create a draft from a job posting.</p>')}
 function render(){
- resumeTerms=words(state.resumeText);
  document.documentElement.dataset.theme=state.theme;$('today').textContent=new Date().toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'});$('refresh').textContent=refreshing?'Refreshing listings…':lastRefresh?'Last refreshed · '+new Date(lastRefresh).toLocaleString():'No feed refresh yet';
  $('filters').hidden=tab!=='matches';$('filters').innerHTML=sourceFilters();
  $('tabs').innerHTML=Object.entries(tabs).map(([id,label])=>'<button data-action="tab" data-value="'+id+'" aria-current="'+(tab===id?'page':'false')+'" class="'+(tab===id?'soft':'')+'">'+label+'</button>').join('');
@@ -514,7 +506,7 @@ companionForm.addEventListener('submit',async event=>{
 function postingContext(job){return [job.title,job.source,job.location,job.url,job.pay?'Published pay: '+job.pay:'',job.role].filter(Boolean).join('\n').slice(0,12000)}
 async function companionTask(task,job,resume){
  const response=await fetch(companionEndpoint,{method:'POST',credentials:'omit',redirect:'error',signal:AbortSignal.timeout(43000),headers:{'Content-Type':'application/json',Authorization:'Bearer '+companionCredential},
- body:JSON.stringify({task,job:postingContext(job),resume,question:task==='draft'?'Create a complete tailored résumé and explain the changes.':'Summarize the role and score interview readiness based on demonstrated experience. Weigh must-have requirements, scope, seniority, transferable skills, and material gaps. Map concrete capabilities (what the candidate did, at what scope, and with what result) to concrete job requirements. Cite a short verbatim résumé phrase in each positive evidence item and explain the connection. Generic terms in common are not evidence. Mark requirements with no evidence as gaps. Ignore personal characteristics and avoid inferring missing qualifications.'})});
+ body:JSON.stringify({task,job:postingContext(job),resume,question:task==='draft'?'Create a complete tailored résumé and explain the changes.':'Summarize the role and score interview readiness based on demonstrated experience. Weigh must-have requirements, scope, seniority, transferable skills, and material gaps. Reserve 75 or higher for candidates whose demonstrated or transferable experience covers the core work at a comparable level. Lower the score for important requirements with no evidence. Map concrete capabilities (what the candidate did, at what scope, and with what result) to concrete job requirements. Cite a short verbatim résumé phrase in each positive evidence item and explain the connection. Generic terms in common are not evidence. Mark requirements with no evidence as gaps. Ignore personal characteristics and avoid inferring missing qualifications.'})});
  const body=await response.json();
  if(!response.ok)throw Error(body.error||'The AI request failed.');
  try{return JSON.parse(body.reply)}catch{throw Error('The assistant returned an incomplete result. Try again.')}
@@ -525,7 +517,7 @@ async function reviewFitBatch(){
  if(fitBatchActive||!state.resumeText.trim()||!requireConnection())return;
  const resume=state.resumeText;
  const jobs=sampleJobs.filter(job=>job.url&&state.selected.includes(job.source)&&aiFitScore(job)===null&&!insightPending.has(job.id))
-  .sort((a,b)=>shortlistPriority(b)-shortlistPriority(a)).slice(0,5);
+  .sort((a,b)=>(b.posted||'').localeCompare(a.posted||'')).slice(0,5);
  if(!jobs.length){notice('All listings from the selected sources have an AI fit review.');return}
  fitBatchActive=true;render();
  let completed=0;
