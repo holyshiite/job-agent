@@ -84,6 +84,9 @@
 .companion-sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 @media(max-width:480px){.companion .mascot{font-size:88px}}
 @media(prefers-reduced-motion:reduce){.companion .mascot{transition:none}}
+
+#open-companion{touch-action:none;user-select:none;cursor:grab}
+#open-companion[data-dragging]{cursor:grabbing}
 </style>
 </head>
 <body>
@@ -367,7 +370,73 @@ function showMessage(role,value){
  $('companion-log').append(line);
  line.scrollIntoView({block:'nearest'});
 }
-$('open-companion').addEventListener('click',()=>{updateCompanion();$('companion-dialog').showModal();chatReaction(companionRequest?'think':'greet')});
+
+const companionLauncher=$('open-companion');
+const mascotPositionKey='job-companion-position';
+const edgeGap=8;
+let mascotPosition=null,mascotDrag=null,ignoreMascotClick=false;
+const clamp=(value,min,max)=>Math.min(max,Math.max(min,value));
+function mascotLimits(){
+ const rect=companionLauncher.getBoundingClientRect();
+ return {x:Math.max(edgeGap,window.innerWidth-rect.width-edgeGap),y:Math.max(edgeGap,window.innerHeight-rect.height-edgeGap)};
+}
+function placeMascot(left,top){
+ const limits=mascotLimits();
+ const x=clamp(left,edgeGap,limits.x),y=clamp(top,edgeGap,limits.y);
+ Object.assign(companionLauncher.style,{left:x+'px',top:y+'px',right:'auto',bottom:'auto'});
+ mascotPosition={x:(x-edgeGap)/Math.max(1,limits.x-edgeGap),y:(y-edgeGap)/Math.max(1,limits.y-edgeGap)};
+}
+function restoreMascot(){
+ if(!mascotPosition)return;
+ const limits=mascotLimits();
+ placeMascot(edgeGap+mascotPosition.x*(limits.x-edgeGap),edgeGap+mascotPosition.y*(limits.y-edgeGap));
+}
+function saveMascot(){
+ try{localStorage.setItem(mascotPositionKey,JSON.stringify(mascotPosition))}catch{}
+}
+try{
+ const saved=JSON.parse(localStorage.getItem(mascotPositionKey));
+ if(Number.isFinite(saved?.x)&&Number.isFinite(saved?.y)){
+  mascotPosition={x:clamp(saved.x,0,1),y:clamp(saved.y,0,1)};
+  restoreMascot();
+ }
+}catch{}
+window.addEventListener('resize',restoreMascot);
+companionLauncher.addEventListener('pointerdown',event=>{
+ if(!event.isPrimary||event.button!==0)return;
+ ignoreMascotClick=false;
+ const rect=companionLauncher.getBoundingClientRect();
+ mascotDrag={id:event.pointerId,x:event.clientX,y:event.clientY,left:rect.left,top:rect.top,moved:false};
+ companionLauncher.setPointerCapture(event.pointerId);
+});
+companionLauncher.addEventListener('pointermove',event=>{
+ if(mascotDrag?.id!==event.pointerId)return;
+ const dx=event.clientX-mascotDrag.x,dy=event.clientY-mascotDrag.y;
+ if(!mascotDrag.moved&&Math.hypot(dx,dy)<6)return;
+ mascotDrag.moved=true;
+ companionLauncher.dataset.dragging='';
+ placeMascot(mascotDrag.left+dx,mascotDrag.top+dy);
+});
+function finishMascotDrag(event){
+ if(mascotDrag?.id!==event.pointerId)return;
+ if(mascotDrag.moved){ignoreMascotClick=true;saveMascot()}
+ mascotDrag=null;
+ delete companionLauncher.dataset.dragging;
+}
+for(const event of ['pointerup','pointercancel','lostpointercapture'])companionLauncher.addEventListener(event,finishMascotDrag);
+companionLauncher.addEventListener('keydown',event=>{
+ const moves={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
+ const move=moves[event.key];
+ if(!move)return;
+ event.preventDefault();
+ const rect=companionLauncher.getBoundingClientRect();
+ placeMascot(rect.left+move[0]*20,rect.top+move[1]*20);
+ saveMascot();
+});
+companionLauncher.addEventListener('click',event=>{
+ if(ignoreMascotClick&&event.detail>0){ignoreMascotClick=false;return}
+ updateCompanion();$('companion-dialog').showModal();chatReaction(companionRequest?'think':'greet');
+});
 $('close-companion').addEventListener('click',()=>$('companion-dialog').close());
 $('configure-companion').addEventListener('click',()=>{
  connectionForm.hidden=!connectionForm.hidden;
