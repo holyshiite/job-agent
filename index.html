@@ -145,12 +145,10 @@ const sourceUrl=name=>safeUrl((Object.hasOwn(state.sourceUrls,name)?state.source
 const remember=(s,id)=>{const job=lookup(id);if(job)s.archive[id]=job};
 const words=text=>new Set((String(text).toLowerCase().match(/[a-z][a-z0-9+#.-]{2,}/g)||[]).filter(x=>!['the','and','with','for','you','your','our','this','that','are','will','have','from','job','role','all','can','who','years','work','team'].includes(x)));
 let resumeTerms;
-function assess(job){
- if(!job.url)return {score:job.match,reasons:job.reasons,label:'Archived sample analysis'};
- if(!state.resumeText.trim())return {score:null,reasons:[],label:'Add résumé text in Admin or select a draft to compare.'};
- const title=words(job.title),keywords=[...words(job.title+' '+job.role)],same=keywords.filter(x=>resumeTerms.has(x));
- const score=Math.round(100*(0.45*[...title].filter(x=>resumeTerms.has(x)).length/Math.max(1,title.size)+0.55*same.length/Math.max(1,keywords.length)));
- return {score,label:'Local keyword similarity',reasons:['Shared terms: '+(same.slice(0,10).join(', ')||'none found')+'.','Role terms to review: '+(keywords.filter(x=>!resumeTerms.has(x)).slice(0,10).join(', ')||'none')+'.']};
+function shortlistPriority(job){
+ const title=words(job.title), vocabulary=words(job.title+' '+job.role);
+ const overlap=terms=>[...terms].filter(term=>resumeTerms.has(term)).length/Math.max(1,terms.size);
+ return 0.45*overlap(title)+0.55*overlap(vocabulary);
 }
 let refreshQueued=false;
 async function refresh(){
@@ -219,15 +217,13 @@ function postedPay(job){
 let fitBatchActive=false;
 function listingFit(job){
  const score=aiFitScore(job);
- return score===null?{score:assess(job).score,ai:false}:{score,ai:true};
+ return {score,ai:score!==null};
 }
 function jobDrawer(job){
- const {score,reasons}=assess(job);
  const insight=insightCache.get(job.id);
  const data=insight?.data;
  const current=insight?.resume===state.resumeText.slice(0,16000);
- const aiFit=current&&Number.isInteger(data?.fit);
- const fit=aiFit?data.fit:score;
+ const fit=aiFitScore(job);
  const concise=(text,max=145)=>text.length>max?text.slice(0,max-1).replace(/\s+\S*$/,'')+'…':text;
  const excerpts=(job.role||'').split(/\n+|(?<=[.!?])\s+|\s+[•●]\s+/).map(x=>x.trim()).filter(x=>x.length>28);
  const brief=job.brief||prepareJobBrief(job.role);
@@ -243,8 +239,8 @@ function jobDrawer(job){
  '<section class="analysis"><h3>Role in brief</h3>'+(bullets.length?listItems(bullets):'<p>See the original posting for role details.</p>')+'</section>'+
  shortSection('Experience',brief.experience)+shortSection('Expectations',brief.expectations)+
  '<section class="analysis"><h3>Résumé match</h3>'+
- (fit==null?'<p>Add résumé text to see a match.</p>':'<div><span class="badge">'+fit+'% '+(aiFit?'AI fit estimate':'keyword match')+'</span></div>'+
- (mapping.length?'<ul>'+mapping.map(x=>'<li><strong>'+escape(concise(x.requirement,80))+'</strong> — '+escape(concise(x.evidence))+'</li>').join('')+'</ul>':listItems(reasons.slice(0,1).map(x=>concise(x)))))+'</section>'+
+ (fit==null?(state.resumeText.trim()?'<p>Run an AI review to see how your experience fits.</p>':'<p>Add résumé text in Admin to review this role.</p>'):'<div><span class="badge">'+fit+'% AI fit estimate'+'</span></div>'+
+ (mapping.length?'<ul>'+mapping.map(x=>'<li><strong>'+escape(concise(x.requirement,80))+'</strong> — '+escape(concise(x.evidence))+'</li>').join('')+'</ul>':'<p>No specific résumé evidence was returned for this review.</p>'))+'</section>'+
  (safeUrl(job.url)?'<a href="'+escape(job.url)+'" target="_blank" rel="noopener noreferrer" class="posting-link">Open original posting ↗</a>':'')+
  '<div class="flex">'+button(busy?'Analyzing…':data&&current?'Refresh AI summary':'Generate AI summary','analyze-job',job.id,'soft')+button('Create tailored résumé','draft',job.id,'primary')+'</div>'+
  '<p class="minor" role="status">'+escape(insightErrors.get(job.id)||(busy?'Generating summary…':'AI actions share the posting and selected résumé text with OpenAI.'))+'</p></aside>';
@@ -518,7 +514,7 @@ companionForm.addEventListener('submit',async event=>{
 function postingContext(job){return [job.title,job.source,job.location,job.url,job.pay?'Published pay: '+job.pay:'',job.role].filter(Boolean).join('\n').slice(0,12000)}
 async function companionTask(task,job,resume){
  const response=await fetch(companionEndpoint,{method:'POST',credentials:'omit',redirect:'error',signal:AbortSignal.timeout(43000),headers:{'Content-Type':'application/json',Authorization:'Bearer '+companionCredential},
- body:JSON.stringify({task,job:postingContext(job),resume,question:task==='draft'?'Create a complete tailored résumé and explain the changes.':'Summarize the role and score interview readiness based on demonstrated experience. Weigh must-have requirements, scope, seniority, transferable skills, and material gaps. Support each match with résumé evidence. Ignore personal characteristics and avoid inferring missing qualifications.'})});
+ body:JSON.stringify({task,job:postingContext(job),resume,question:task==='draft'?'Create a complete tailored résumé and explain the changes.':'Summarize the role and score interview readiness based on demonstrated experience. Weigh must-have requirements, scope, seniority, transferable skills, and material gaps. Map concrete capabilities (what the candidate did, at what scope, and with what result) to concrete job requirements. Cite a short verbatim résumé phrase in each positive evidence item and explain the connection. Generic terms in common are not evidence. Mark requirements with no evidence as gaps. Ignore personal characteristics and avoid inferring missing qualifications.'})});
  const body=await response.json();
  if(!response.ok)throw Error(body.error||'The AI request failed.');
  try{return JSON.parse(body.reply)}catch{throw Error('The assistant returned an incomplete result. Try again.')}
@@ -529,7 +525,7 @@ async function reviewFitBatch(){
  if(fitBatchActive||!state.resumeText.trim()||!requireConnection())return;
  const resume=state.resumeText;
  const jobs=sampleJobs.filter(job=>job.url&&state.selected.includes(job.source)&&aiFitScore(job)===null&&!insightPending.has(job.id))
-  .sort((a,b)=>(assess(b).score??-1)-(assess(a).score??-1)).slice(0,5);
+  .sort((a,b)=>shortlistPriority(b)-shortlistPriority(a)).slice(0,5);
  if(!jobs.length){notice('All listings from the selected sources have an AI fit review.');return}
  fitBatchActive=true;render();
  let completed=0;
