@@ -176,7 +176,16 @@ const button=(label,action,value='',cls='')=>'<button class="'+cls+'" data-actio
 function notice(message){$('status').textContent=message}
 function change(update){const next=structuredClone(state);update(next);try{localStorage.setItem(key,JSON.stringify(next));state=next;render();return true}catch{notice('The browser could not save this change. Storage may be full or disabled.');return false}}
 function sourceFilters(){return '<div class="flex spread"><strong>Job sources</strong><span class="minor">'+state.selected.length+' selected</span>'+button(refreshing?'Refreshing…':'Refresh listings','refresh')+'</div>'+Object.entries(state.sources).map(([kind,names])=>'<div class="filter-row"><strong>'+(kind==='companies'?'Companies':'Job boards')+'</strong><div class="chips">'+names.map(name=>'<label class="chip"><input type="checkbox" data-source="'+escape(name)+'" '+(state.selected.includes(name)?'checked':'')+'> '+escape(name)+'</label>').join('')+'</div></div>').join('')}
-function sourceSidebar(){return '<aside class="panel stack"><h3>Selected sources</h3>'+Object.entries(state.sources).map(([kind,names])=>'<strong class="minor">'+(kind==='companies'?'Companies':'Job boards')+'</strong>'+names.filter(name=>state.selected.includes(name)).map(name=>{const jobs=sampleJobs.filter(j=>j.source===name&&j.url&&qualifiesForMatches(j));return '<details data-group="'+escape(name)+'" '+(expanded.has(name)?'open':'')+'><summary>'+escape(name)+' ('+jobs.length+')</summary>'+sourceStatus(name)+jobs.slice(0,8).map(j=>button(j.title,'open',j.id)).join('')+'</details>'}).join('')).join('')+'</aside>'}
+function sourceSidebar(){
+ return '<aside class="panel stack"><h3>Selected sources</h3>'+Object.entries(state.sources).map(([kind,names])=>'<strong class="minor">'+(kind==='companies'?'Companies':'Job boards')+'</strong>'+names.filter(name=>state.selected.includes(name)).map(name=>{
+  const loaded=sampleJobs.filter(j=>j.source===name&&j.url);
+  const matches=loaded.filter(qualifiesForMatches);
+  const url=sourceUrl(name);
+  const sourceActions=(url?'<a href="'+escape(url)+'" target="_blank" rel="noopener noreferrer">'+(name==='Apple'?'Search Apple Jobs ↗':'Open source ↗')+'</a> ':'')+(!loaded.length?button('Import posting','import-source',name):'');
+  return '<section class="stack"><details data-group="'+escape(name)+'" '+(expanded.has(name)?'open':'')+'><summary>'+escape(name)+' ('+matches.length+' '+(matches.length===1?'match':'matches')+')</summary>'+sourceStatus(name)+matches.slice(0,8).map(j=>button(j.title,'open',j.id)).join('')+'</details>'+
+  '<p class="minor">'+(loaded.length?loaded.length+' postings loaded':'No postings loaded')+'</p><div class="flex">'+sourceActions+'</div></section>';
+ }).join('')).join('')+'</aside>';
+}
 function jobTable(jobs,mode){
  if(!jobs.length)return '<p class="minor">'+({matches:state.resumeText.trim()?'No reviewed listings meet the 75% cutoff yet. Use AI review next 5 to check more jobs.':'Add résumé text in Admin to start finding matches.',saved:'Check Save beside a listing to see it here.',submitted:'Mark a posting as submitted to track it here.'})[mode]+'</p>';
  const tail=mode==='submitted'?'<th>Submitted</th><th>Résumé</th>':'<th>Save</th><th>Application</th>';
@@ -280,6 +289,9 @@ document.addEventListener('click',event=>{
  if(action==='open'){activeJob=value;render();$('view').querySelector('.drawer button')?.focus()}
  if(action==='close'){const id=activeJob;activeJob=null;render();$('view').querySelector('[data-action="open"][data-value="'+id+'"]')?.focus()}
  if(action==='admin')settings();
+ if(action==='import-source'){
+  settings();const form=$('import-job');form.elements.source.value=value;form.elements.url.focus();
+ }
  if(action==='refresh')void refresh();
  if(action==='use-resume'){const resume=state.resumes.find(x=>x.id===value);if(resume?.text&&change(s=>{s.resumeText=resume.text}))notice('Résumé draft selected for matching.');}
  if(action==='dismiss-settings')$('settings').close();
