@@ -38,6 +38,14 @@
 @keyframes mascot-tilt{0%,100%{transform:none}35%,65%{transform:rotate(-12deg)}}
 @keyframes mascot-hop{0%,100%{transform:none}28%{transform:translateY(-8px) rotate(-8deg)}62%{transform:translateY(-5px) rotate(7deg)}}
 @media(prefers-reduced-motion:reduce){.mascot,.mascot *{animation:none!important}.mascot-effect{display:none}}
+
+#settings{--edge:clamp(8px,3vw,28px);width:min(760px,calc(100vw - 2 * var(--edge)));max-width:none;max-height:calc(100dvh - 2 * var(--edge));margin:var(--edge) auto auto;overscroll-behavior:contain;overflow:auto;padding:clamp(12px,3vw,24px)}
+#settings[open]{animation:admin-slide-in .28s ease-out both}
+#settings .stack,#settings .flex{min-width:0}
+#settings input:not([type=checkbox]),#settings select,#settings textarea{min-width:0}
+#settings label,#settings button,#settings .minor{overflow-wrap:anywhere}
+@keyframes admin-slide-in{from{transform:translateY(-24px);opacity:0}to{transform:translateY(0);opacity:1}}
+@media(prefers-reduced-motion:reduce){#settings[open]{animation:none}}
 </style>
 </head>
 <body>
