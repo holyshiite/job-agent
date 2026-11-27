@@ -1,6 +1,6 @@
 
 export const sites = {
-  "Apple": "https://jobs.apple.com/en-us/search",
+  "Apple": "https://jobs.apple.com/en-us/search?location=united-states-USA",
   "Netflix": "https://explore.jobs.netflix.net/careers",
   "Google": "https://www.google.com/about/careers/applications/jobs/results/",
   "Meta": "https://www.metacareers.com/jobs",
