@@ -200,27 +200,29 @@ function postedPay(job){
  return results.slice(0,3).join(' · ');
 }
 function jobDrawer(job){
- const {score,reasons,label}=assess(job);
+ const {score,reasons}=assess(job);
  const insight=insightCache.get(job.id);
- const useResume=insight?.resume===state.resumeText.slice(0,16000);
- const fit=useResume&&Number.isInteger(insight.data.fit)?insight.data.fit:score;
  const data=insight?.data;
- const mapping=useResume?data?.mapping||[]:[];
- const recommendations=useResume?data?.recommendations||[]:[];
- const pay=job.pay||postedPay(job)||'No pay range found in the feed';
+ const current=insight?.resume===state.resumeText.slice(0,16000);
+ const aiFit=current&&Number.isInteger(data?.fit);
+ const fit=aiFit?data.fit:score;
+ const concise=(text,max=145)=>text.length>max?text.slice(0,max-1).replace(/\s+\S*$/,'')+'…':text;
+ const excerpts=(job.role||'').split(/\n+|(?<=[.!?])\s+|\s+[•●]\s+/).map(x=>x.trim()).filter(x=>x.length>28);
+ const bullets=(data?.highlights?.length?data.highlights:excerpts).slice(0,3).map(x=>concise(x));
+ const mapping=current?(data?.mapping||[]).slice(0,2):[];
+ const pay=job.pay||postedPay(job);
  const busy=insightPending.has(job.id);
  return '<aside class="panel stack drawer" aria-label="Job details">'+
- '<div class="flex spread"><span class="minor">Job details</span>'+button('Close','close')+'</div><h2>'+escape(job.title)+'</h2><p class="minor">'+escape(job.source+' · '+job.location)+' · '+(job.dateLabel||'Posted')+' '+date(job.posted)+'</p>'+
- (safeUrl(job.url)?'<a href="'+escape(job.url)+'" target="_blank" rel="noopener noreferrer" class="posting-link">Open original job posting ↗</a>':'')+
- '<div><span class="badge">'+(fit===null?'No résumé comparison yet':fit+'% '+(useResume&&Number.isInteger(data?.fit)?'AI fit estimate':'résumé similarity'))+'</span></div>'+
- '<section class="analysis"><h3>Pay range</h3><p>'+escape(pay)+'</p></section>'+
- '<section class="analysis"><h3>'+ (data?'AI role summary':'Role overview')+'</h3><p>'+escape(data?.overview||((job.role||'').slice(0,210)+(job.role?.length>210?'…':''))||'See the original posting for details.')+'</p>'+listItems(data?.highlights||[])+'</section>'+
- '<section class="analysis"><h3>Why it fits</h3><p class="minor">'+escape(mapping.length?'Job requirements mapped to your résumé':label)+'</p>'+
- (mapping.length?'<ul>'+mapping.map(x=>'<li><strong>'+escape(x.requirement)+'</strong><br>'+escape(x.evidence)+'</li>').join('')+'</ul>':listItems(reasons))+'</section>'+
- (recommendations.length?'<section class="analysis"><h3>Recommendations</h3>'+listItems(recommendations)+'</section>':'')+
- '<p class="minor" role="status">'+escape(insightErrors.get(job.id)|| (busy?'Generating analysis…':'AI analysis and tailoring send this posting and your selected résumé text, if available, to OpenAI.'))+'</p>'+
- '<div class="flex">'+button(busy?'Analyzing…':useResume?'Refresh AI analysis':'Generate AI analysis','analyze-job',job.id,'soft')+button('Create tailored résumé','draft',job.id,'primary')+'</div>'+
- (job.role?'<details><summary>Full posting text</summary><p>'+escape(job.role)+'</p></details>':'')+'</aside>';
+ '<div class="flex spread"><h2>'+escape(job.title)+'</h2>'+button('Close','close')+'</div>'+
+ '<p class="minor">'+escape(job.source+' · '+job.location)+'</p>'+
+ (pay?'<p><strong>Published pay</strong> · '+escape(pay)+'</p>':'')+
+ '<section class="analysis"><h3>Role in brief</h3>'+(bullets.length?listItems(bullets):'<p>See the original posting for role details.</p>')+'</section>'+
+ '<section class="analysis"><h3>Résumé match</h3>'+
+ (fit==null?'<p>Add résumé text to see a match.</p>':'<div><span class="badge">'+fit+'% '+(aiFit?'AI fit estimate':'keyword match')+'</span></div>'+
+ (mapping.length?'<ul>'+mapping.map(x=>'<li><strong>'+escape(concise(x.requirement,80))+'</strong> — '+escape(concise(x.evidence))+'</li>').join('')+'</ul>':listItems(reasons.slice(0,1).map(x=>concise(x)))))+'</section>'+
+ (safeUrl(job.url)?'<a href="'+escape(job.url)+'" target="_blank" rel="noopener noreferrer" class="posting-link">Open original posting ↗</a>':'')+
+ '<div class="flex">'+button(busy?'Analyzing…':data&&current?'Refresh AI summary':'Generate AI summary','analyze-job',job.id,'soft')+button('Create tailored résumé','draft',job.id,'primary')+'</div>'+
+ '<p class="minor" role="status">'+escape(insightErrors.get(job.id)||(busy?'Generating summary…':'AI actions share the posting and selected résumé text with OpenAI.'))+'</p></aside>';
 }
 
 function resumesTable(){return '<div class="flex spread"><h2>Résumé drafts</h2>'+button('Upload résumé','admin','','primary')+'</div>'+(state.resumes.length?'<div class="table-scroll"><table><thead><tr><th>Résumé</th><th>Linked posting</th><th>Updated</th><th>Type</th><th>Actions</th></tr></thead><tbody>'+state.resumes.map(r=>'<tr><td>'+escape(r.name)+'</td><td>'+escape(linked(r.job))+'</td><td>'+date(r.date)+'</td><td>'+escape(r.type)+'</td><td><div class="flex">'+button('Download','download',r.id)+button(r.type==='Draft'?'Edit':'Link posting','edit',r.id)+(r.type==='Draft'?button('Use for matching','use-resume',r.id):'')+button('Remove','remove-resume',r.id)+'</div></td></tr>').join('')+'</tbody></table></div>':'<p class="minor">Upload a résumé or create a draft from a job posting.</p>')}
