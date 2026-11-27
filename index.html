@@ -59,6 +59,31 @@
 .red-pen{border-left:3px solid #bb3a55;padding:12px;background:var(--bg);border-radius:7px;overflow-wrap:anywhere}.red-pen strong,.red-pen ins,.red-pen del{color:#ac2742}:root[data-theme=dark] .red-pen strong,:root[data-theme=dark] .red-pen ins,:root[data-theme=dark] .red-pen del{color:#ff9bac}
 .draft-grid textarea{min-height:44vh}
 @media(max-width:720px){.draft-grid{grid-template-columns:minmax(0,1fr)}}
+
+.companion,.companion:not(:disabled):hover{background:none;border:0;box-shadow:none;padding:0;inset:auto max(12px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) auto}
+.companion .mascot{font-size:108px;transition:filter .2s}
+.companion:hover .mascot{filter:brightness(1.08)}
+.mascot{font-size:54px;width:1em;height:1.12em;isolation:isolate;filter:drop-shadow(0 .045em .047em #161a5860)}
+#chat-mascot{background:none;border-radius:0}
+.mascot-shadow{position:absolute;bottom:.03em;left:.18em;width:.64em;height:.13em;border-radius:50%;background:#1e21404d;filter:blur(.035em)}
+.mascot-body{position:absolute;z-index:1;top:.61em;left:.27em;width:.46em;height:.35em;border-radius:45% 45% 48% 48%;background:radial-gradient(ellipse at 35% 15%,#b1c7ff,#758df0 54%,#4556ac 95%);border:1px solid #394993;box-shadow:inset 0 -.05em .06em #38479265}
+.mascot-body::after{content:"";position:absolute;top:26%;left:32%;width:36%;height:45%;border-radius:50%;background:#c6d9ff91}
+.mascot-foot{position:absolute;z-index:0;top:.85em;width:.21em;height:.18em;border-radius:50% 50% 42% 42%;background:linear-gradient(135deg,#9cb4ff,#4a5fbf 82%);border:1px solid #394993}
+.mascot-foot.left{left:.29em}.mascot-foot.right{right:.29em}
+.mascot-tail{position:absolute;z-index:0;right:.08em;bottom:.23em;width:.27em;height:.33em;border-right:.09em solid #697fdf;border-bottom:.08em solid #5064c4;border-radius:0 40% 52% 0;transform:rotate(15deg)}
+.mascot-ear{top:.105em;left:.13em;width:.26em;height:.29em;border:1px solid #4254ac;border-radius:48% 60% 26% 50%;background:radial-gradient(ellipse at 34% 28%,#e4d9ff 0 23%,#a0b8ff 32%,#6075d2 78%);transform:rotate(-23deg)}
+.mascot-ear.right{right:.13em;transform:scaleX(-1) rotate(-23deg)}
+.mascot-face{position:absolute;z-index:2;top:.22em;left:.09em;width:.82em;height:.51em;border:1px solid #4152a4;border-radius:48% 48% 44% 44%;background:radial-gradient(ellipse at 35% 21%,#e0eaff 0,#bacdff 33%,#93aaf8 68%,#5973cd 100%);box-shadow:inset 0 -.055em .07em #4256ad5e,inset 0 .035em .04em #fff7;color:#23275c;padding-top:.19em;gap:.23em}
+.mascot-face:before,.mascot-face:after{width:.065em;height:.085em;background:#24295b;box-shadow:inset .015em .014em #fff8}
+.mascot-mouth{width:.08em;height:.048em;top:.29em;left:calc(50% - .04em);border-bottom:2px solid #423d75}
+.mascot-blush{position:absolute;width:.1em;height:.041em;top:.32em;border-radius:50%;background:#f5a6d489}.mascot-blush.left{left:.13em}.mascot-blush.right{right:.13em}
+.mascot-paw{z-index:3;bottom:.2em;right:.17em;width:.19em;height:.145em;border:1px solid #4559ae;border-radius:48%;background:radial-gradient(ellipse at 37% 24%,#d3e0ff,#8ca4fa 65%,#5d73d1);box-shadow:inset 0 -.025em .025em #4357ad65}
+.mascot-effect{font-size:.29em;top:.04em;right:0}
+.mascot[data-emote=kiss] .mascot-mouth{width:.055em;height:.055em;left:calc(50% - .0275em)}
+.mascot[data-emote=wink] .mascot-face:after{height:.025em;margin-top:.035em}
+.companion-sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+@media(max-width:480px){.companion .mascot{font-size:88px}}
+@media(prefers-reduced-motion:reduce){.companion .mascot{transition:none}}
 </style>
 </head>
 <body>
@@ -68,10 +93,10 @@
 <p id="status" aria-live="polite"></p><main id="view"></main>
 <dialog id="settings"></dialog><dialog id="editor"></dialog>
 
-<button class="companion" id="open-companion"><span class="mascot" id="job-mascot" aria-hidden="true"><span class="mascot-ear"></span><span class="mascot-ear right"></span><span class="mascot-face"><span class="mascot-mouth"></span></span><span class="mascot-paw"></span><span class="mascot-effect"></span></span>Job companion</button>
+<button class="companion" id="open-companion" aria-label="Open Job Companion"><span class="mascot" id="job-mascot" aria-hidden="true"><span class="mascot-shadow"></span><span class="mascot-tail"></span><span class="mascot-foot left"></span><span class="mascot-foot right"></span><span class="mascot-body"></span><span class="mascot-ear"></span><span class="mascot-ear right"></span><span class="mascot-face"><span class="mascot-mouth"></span></span><span class="mascot-paw"></span><span class="mascot-effect"></span></span></button>
 <dialog id="companion-dialog" aria-labelledby="companion-title">
   <div class="stack">
-    <div class="flex spread"><div class="flex"><span class="mascot" id="chat-mascot" aria-hidden="true"><span class="mascot-ear"></span><span class="mascot-ear right"></span><span class="mascot-face"><span class="mascot-mouth"></span></span><span class="mascot-paw"></span><span class="mascot-effect"></span></span><h2 id="companion-title">Job companion</h2></div><button id="close-companion" type="button">Close</button></div>
+    <div class="flex spread"><div class="flex"><span class="mascot" id="chat-mascot" aria-hidden="true"><span class="mascot-shadow"></span><span class="mascot-tail"></span><span class="mascot-foot left"></span><span class="mascot-foot right"></span><span class="mascot-body"></span><span class="mascot-ear"></span><span class="mascot-ear right"></span><span class="mascot-face"><span class="mascot-mouth"></span></span><span class="mascot-paw"></span><span class="mascot-effect"></span></span><h2 id="companion-title" class="companion-sr-only">Job companion</h2></div><button id="close-companion" type="button">Close</button></div>
     <div class="flex"><button id="configure-companion" type="button">Connect</button><button id="clear-companion" type="button">Clear chat</button></div>
     <form id="companion-connection" class="stack" hidden>
       <label>Backend URL <input name="endpoint" type="url" placeholder="https://your-worker.example/chat" required></label>
